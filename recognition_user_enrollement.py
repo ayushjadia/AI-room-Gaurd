@@ -5,6 +5,7 @@ import numpy as np
 import cv2
 import face_recognition
 import pyttsx3
+from PIL import Image
 
 # Config
 ENROLL_DIR = "enroll_images"
@@ -50,15 +51,19 @@ def enroll_from_images(enroll_dir=ENROLL_DIR):
         path = os.path.join(enroll_dir, fn)
         raw_name = fn.split('_')[0]
         print(f"[ENROLL] Processing {fn} for {raw_name}")
-
-        img = cv2.imread(path)
+        img_pil = Image.open(path).convert("RGB")  # forces 8-bit RGB
+        img = np.array(img_pil)
+        # img = cv2.imread(path)
         if img is None:
             print(f"  - Could not read {fn}, skipping.")
             continue
 
-        # Force contiguous RGB array
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = np.require(img, dtype=np.uint8, requirements=["C_CONTIGUOUS"])
+        # # Force contiguous RGB array
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # img = np.require(img, dtype=np.uint8, requirements=["C_CONTIGUOUS"])
+        print("  - Channels:", img.shape[2] if len(img.shape)==3 else 1)
+        print("  - Dtype:", img.dtype)
+
 
         print(f"  - Image shape={img.shape}, dtype={img.dtype}, contiguous={img.flags['C_CONTIGUOUS']}")
 
