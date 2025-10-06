@@ -39,28 +39,48 @@ def save_embeddings(npz_path, names, embeddings):
 
 def enroll_from_images(enroll_dir=ENROLL_DIR):
     """Load images in enroll_dir, compute embeddings. Filenames should be Name_#.jpg"""
-    names = []
-    embeddings = []
+    import cv2
+    names, embeddings = [], []
     if not os.path.isdir(enroll_dir):
-        print(f"[ENROLL] Directory '{enroll_dir}' not found. Create it and add images named like Alice_1.jpg")
+        print(f"[ENROLL] Directory '{enroll_dir}' not found.")
         return names, embeddings
 
     files = [f for f in os.listdir(enroll_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
     for fn in files:
         path = os.path.join(enroll_dir, fn)
-        # name parsing: anything before the first underscore
         raw_name = fn.split('_')[0]
         print(f"[ENROLL] Processing {fn} for {raw_name}")
-        img = face_recognition.load_image_file(path)
-        face_locs = face_recognition.face_locations(img)
+
+        img = cv2.imread(path)
+        if img is None:
+            print(f"  - Could not read {fn}, skipping.")
+            continue
+
+        # Force contiguous RGB array
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = np.require(img, dtype=np.uint8, requirements=["C_CONTIGUOUS"])
+
+        print(f"  - Image shape={img.shape}, dtype={img.dtype}, contiguous={img.flags['C_CONTIGUOUS']}")
+
+        try:
+            face_locs = face_recognition.face_locations(img)
+
+        except Exception as e:
+            print(f"  - Face detection error on {fn}: {e}")
+            continue
+
         if len(face_locs) == 0:
             print(f"  - No face found in {fn}, skipping.")
             continue
-        # Use first face found
+
         enc = face_recognition.face_encodings(img, known_face_locations=face_locs)[0]
         names.append(raw_name)
         embeddings.append(enc)
+
+    print(f"[ENROLL] Completed enrollment for {len(names)} user(s).")
     return names, embeddings
+
+
 
 def interactive_enroll(camera_index=0, num_images=3, resize_width=320):
     """Capture images via webcam for a new user and compute average embedding."""
