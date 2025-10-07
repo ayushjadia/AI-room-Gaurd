@@ -35,27 +35,7 @@ current_state = state
 
 
 # threading.Thread(target=tts_loop, daemon=True).start()
-# pipline = graph.compile()
+pipline = graph.compile()
 # pipline.invoke(current_state)
 # tts_queue.put(None)  # sends sentinel to stop tts_loop
-# pipline.invoke(current_state)
-while True:
-    # Activation first
-    current_state = activation_node(current_state)
-
-    # # Recognizer → Dialogue loop
-    current_state = recognizer_node(current_state)
-
-    current_state = escalation_agent_node(current_state)
-    
-    if current_state.trusted_user:
-        print("[Workflow] Trusted user detected. Ending loop.")
-        break
-
-
-    # # Stop condition: escalation reached alarm level
-    if current_state.escalation_level >= 4:
-        print("[Workflow] Escalation reached max level! Alarm triggered.")
-        break
-
-# print("[Final Guard State]:", current_state)
+pipline.invoke(current_state)
