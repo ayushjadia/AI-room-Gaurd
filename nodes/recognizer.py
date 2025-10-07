@@ -4,19 +4,9 @@ import time
 import pyttsx3
 import numpy as np
 import face_recognition
+from ..utilities import tts_say
 from ..config import *  # for EMBED_FILE, FACE_DISTANCE_THRESHOLD, RATES, etc.
 import os
-
-# Initialize TTS
-tts_engine = pyttsx3.init()
-tts_engine.setProperty("rate", TTS_RATE)
-
-def tts_say(text):
-    try:
-        tts_engine.say(text)
-        tts_engine.runAndWait()
-    except Exception as e:
-        print("[TTS] Error:", e)
 
 def load_embeddings(npz_path):
     if not os.path.exists(npz_path):
@@ -82,7 +72,7 @@ def recognizer_node(state: GuardState, camera_index=0) -> GuardState:
                     color = (0, 200, 0)
                     state.trusted_user = True
                     now = time.time()
-                    if (name not in last_spoken) or (now - last_spoken[name] > SPOKEN_COOLDOWN):
+                    if (name not in last_spoken):
                         tts_say(f"Welcome {name}")
                         last_spoken[name] = now
                 else:
