@@ -3,26 +3,21 @@ import queue
 import time
 import traceback
 import sys
-from config import *
+from typing import TypedDict
+from ..config import *
 from IPython.display import display, clear_output
 import cv2
 import numpy as np
 import speech_recognition as sr
 import pyttsx3
 import ipywidgets as widgets
+from ..state import GuardState
+ 
 
 
-
-WAKE_PHRASES = [p.lower() for p in WAKE_PHRASES]
-
-LISTEN_TIMEOUT = 5            # seconds to wait for audio chunk when listening
-PHRASE_TIME_LIMIT = 5         # max length of one spoken chunk (seconds)
-CAMERA_INDEX = 0              # 0 is usually the laptop webcam
-DISPLAY_WINDOW_NAME = "GuardCam (press q to quit)"
-TTS_RATE = 150
+# WAKE_PHRASES = [p.lower() for p in WAKE_PHRASES]
 
 # Global state
-guard_on = False
 shutdown_flag = False
 
 # Thread-safe queue to pass recognised text to main thread
@@ -94,9 +89,12 @@ def asr_listen_loop(recognizer, mic):
             time.sleep(1.0)
     print("[ASR] Listener thread exiting.")
 
-def main_loop():
+def set_guard_status(state,status: bool):
+    state.guard_status= status
+
+def main_loop(state: GuardState) -> GuardState:
     """Main loop: shows webcam and processes transcripts for activation."""
-    global guard_on, shutdown_flag
+    global shutdown_flag
 
     # Setup speech recognizer and microphone
     recognizer = sr.Recognizer()
@@ -105,7 +103,7 @@ def main_loop():
     except Exception as e:
         print("Could not open microphone. Make sure it's available.")
         print("Error:", e)
-        return
+        raise(e)
 
     # Start ASR thread
     asr_thread = threading.Thread(target=asr_listen_loop, args=(recognizer, mic), daemon=True)
@@ -114,10 +112,7 @@ def main_loop():
     # Open webcam
     cap = cv2.VideoCapture(CAMERA_INDEX)
     if not cap.isOpened():
-        print("Unable to access webcam (index {}). Exiting.".format(CAMERA_INDEX))
-        shutdown_flag = True
-        asr_thread.join(timeout=1.0)
-        return
+        raise SystemError("Unable to access webcam (index {}). Exiting.".format(CAMERA_INDEX))
 
     print("Webcam opened. Press 'q' in the window to quit.")
 
@@ -156,13 +151,13 @@ def main_loop():
                 if is_wake_phrase(transcript):
                     now = time.time()
                     if now - last_toggle_time > TOGGLE_COOLDOWN:
-                        guard_on = not guard_on
+                        state.guard_status = not state.guard_status  # Toggle through state
                         last_toggle_time = now
-                        state_text = "GUARD ACTIVE" if guard_on else "GUARD OFF"
+                        state_text = "GUARD ACTIVE" if state.guard_status else "GUARD OFF"
                         print(f"[SYSTEM] Toggled guard: {state_text}")
-                        tts_say(f"{'Guard mode activated' if guard_on else 'Guard mode deactivated'}")
+                        tts_say(f"{'Guard mode activated' if state.guard_status else 'Guard mode deactivated'}")
                         # optional demo recording when activated
-                        if guard_on and record_on_activate:
+                        if state.guard_status and record_on_activate:
                             # start recording to file
                             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
                             fname = f"guard_activation_{int(time.time())}.mp4"
@@ -175,9 +170,9 @@ def main_loop():
                     # Non-wake phrase recognized. For debugging show transcript briefly
                     print(f"[ASR] Heard (not wake): {transcript}")
 
-            # Overlay status on frame
-            text_color = (0, 255, 0) if guard_on else (0, 150, 255)
-            cv2.putText(display_frame, f"Guard: {'ON' if guard_on else 'OFF'}", (10, 30), font, 1, text_color, 2)
+            # Update display based on state
+            text_color = (0, 255, 0) if state.guard_status else (0, 150, 255)
+            cv2.putText(display_frame, f"Guard: {'ON' if state.guard_status else 'OFF'}", (10, 30), font, 1, text_color, 2)
             # show last transcript (if any) for debug:
             if transcript:
                 cv2.putText(display_frame, f"Heard: {transcript}", (10, 60), font, 0.6, (255,255,255), 1)
@@ -205,8 +200,8 @@ def main_loop():
                 print("Quit requested by user.")
                 break
             if key == ord('g'):
-                guard_on = not guard_on
-                tts_say(f"{'Guard mode activated' if guard_on else 'Guard mode deactivated'}")
+                state.guard_status = not state.guard_status
+                tts_say(f"{'Guard mode activated' if state.guard_status else 'Guard mode deactivated'}")
 
             # small sleep to be gentle on CPU
             time.sleep(0.01)
@@ -223,7 +218,24 @@ def main_loop():
         cv2.destroyAllWindows()
         # stop ASR thread gracefully
         asr_thread.join(timeout=2.0)
+        try:
+            tts_engine.stop()
+        except:
+            pass
         print("Exited cleanly.")
+    return state  # Return updated state
+
+def activation_node(state: GuardState) -> GuardState:
+    """LangGraph node wrapper for activation system"""
+    try:
+        return main_loop(state)
+    except Exception as e:
+        print(f"[ActivationNode] Error: {e}")
+        return state
 
 if __name__ == "__main__":
-    main_loop()
+    initial_state = GuardState()
+    print(initial_state)
+    activation_node(state=initial_state)
+    print(initial_state)
+    

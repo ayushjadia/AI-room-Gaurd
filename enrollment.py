@@ -5,7 +5,7 @@ import numpy as np
 import cv2
 import face_recognition
 import pyttsx3
-from .config import *
+from config import *
 
 
 # lower threshold => stricter matching; 0.4-0.6 typical for face_recognition embeddings
@@ -109,90 +109,10 @@ def interactive_enroll(camera_index=0, num_images=3, resize_width=320):
     avg_embedding = np.mean(np.array(captured_embeddings), axis=0)
     return [user_name], [avg_embedding]
 
-def compare_embedding(query_emb, known_embeddings, threshold=FACE_DISTANCE_THRESHOLD):
-    """Return index of best match or None. Uses Euclidean distance."""
-    if len(known_embeddings) == 0:
-        return None, None
-    dists = face_recognition.face_distance(known_embeddings, query_emb)
-    best_idx = np.argmin(dists)
-    best_dist = float(dists[best_idx])
-    if best_dist <= threshold:
-        return int(best_idx), best_dist
-    else:
-        return None, best_dist
-
-def run_recognition(camera_index=0):
-    trusted_names, trusted_embeddings = load_embeddings(EMBED_FILE)
-    print(f"[INFO] Loaded {len(trusted_names)} trusted embeddings.")
-    if len(trusted_names) == 0:
-        print("No trusted embeddings found. Run enrollment first (`--enroll_from_images` or `--interactive_enroll`).")
-        return
-
-    cap = cv2.VideoCapture(camera_index)
-    if not cap.isOpened():
-        print("[RUN] Cannot open webcam.")
-        return
-
-    last_spoken = {}  # avoid repeated TTS for same person (name -> last_time)
-    SPOKEN_COOLDOWN = 5.0  # seconds between greetings for same person
-
-    print("[RUN] Starting recognition. Press 'q' in window to quit.")
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("[RUN] Failed to read frame.")
-            break
-
-        # resize for speed
-        small = cv2.resize(frame, (0,0), fx=0.5, fy=0.5)
-        rgb_small = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
-
-        # detect faces
-        face_locations = face_recognition.face_locations(rgb_small)
-        face_encodings = face_recognition.face_encodings(rgb_small, face_locations)
-
-        for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
-            # scale face location back to original frame coords
-            top *= 2; right *= 2; bottom *= 2; left *= 2
-
-            match_idx, dist = compare_embedding(face_encoding, trusted_embeddings)
-            if match_idx is not None:
-                name = trusted_names[match_idx]
-                label = f"{name} ({dist:.2f})"
-                color = (0, 200, 0)
-                # speak welcome but avoid repeating too often
-                now = time.time()
-                if (name not in last_spoken) or (now - last_spoken[name] > SPOKEN_COOLDOWN):
-                    tts_say(f"Welcome {name}")
-                    last_spoken[name] = now
-            else:
-                label = f"Unknown ({dist:.2f})" if dist is not None else "Unknown"
-                color = (0, 0, 255)
-                # Speak once per unknown person every SPOKEN_COOLDOWN seconds
-                now = time.time()
-                unk_key = "Unknown"
-                if (unk_key not in last_spoken) or (now - last_spoken[unk_key] > SPOKEN_COOLDOWN):
-                    tts_say("Hello. I do not recognize you. Please leave this room.")
-                    last_spoken[unk_key] = now
-
-            # Draw box and label
-            cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
-            cv2.rectangle(frame, (left, bottom - 20), (right, bottom), color, cv2.FILLED)
-            cv2.putText(frame, label, (left + 4, bottom - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 1)
-
-        cv2.imshow("Face Recognition (press q to quit)", frame)
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--enroll_from_images", action="store_true", help="Create embeddings from images in enroll_images/")
     parser.add_argument("--interactive_enroll", action="store_true", help="Capture images from webcam to enroll a user")
-    parser.add_argument("--recognize", action="store_true", help="Run the real-time recognition demo")
     args = parser.parse_args()
 
     if args.enroll_from_images:
@@ -215,8 +135,6 @@ def main():
         else:
             print("Interactive enrollment produced no embeddings.")
 
-    elif args.recognize:
-        run_recognition()
     else:
         parser.print_help()
 

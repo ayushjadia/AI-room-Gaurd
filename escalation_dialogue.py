@@ -6,6 +6,7 @@ import threading
 import pyttsx3
 import importlib
 import os
+from .config import *
 import speech_recognition as sr
 from openai import OpenAI
 
