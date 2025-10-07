@@ -11,6 +11,7 @@ from typing import List
 from pydantic import BaseModel
 from langchain_cerebras import ChatCerebras
 from ..state import GuardState
+from ..utilities import tts_say
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -51,15 +52,15 @@ tts_engine.setProperty("rate", 150)
 
 recognizer = sr.Recognizer()
 
-# ------------------ TTS ------------------
-def tts_say(text: str):
-    """Speak text synchronously, blocking until done."""
-    print(f"[Guard says]: {text}")
-    try:
-        tts_engine.say(text)
-        tts_engine.runAndWait()  # BLOCKS until speech is finished
-    except Exception as e:
-        print("[TTS error]:", e)
+# # ------------------ TTS ------------------
+# def tts_say(text: str):
+#     """Speak text synchronously, blocking until done."""
+#     print(f"[Guard says]: {text}")
+#     try:
+#         tts_engine.say(text)
+#         tts_engine.runAndWait()  # BLOCKS until speech is finished
+#     except Exception as e:
+#         print("[TTS error]:", e)
 
 def listen_once(timeout=6) -> str:
     """
@@ -92,7 +93,7 @@ def escalation_agent_node(state: GuardState) -> GuardState:
     Handles conversation and escalation using LLM reasoning.
     """
     print("\n[EscalationAgent Node] Running LLM dialogue escalation...")
-
+    tts_say("escalation_agent_node started")
     # Skip if guard off
     if not state.guard_status:
         print("[EscalationAgent] Guard OFF. Exiting node.")
@@ -112,7 +113,8 @@ def escalation_agent_node(state: GuardState) -> GuardState:
 
     # Dialogue loop
     while state.escalation_level <= 3:
-        # print("hi\n")
+        print("hi\n")
+        tts_say("PLease leave the room")
         intruder_text = listen_once(timeout=7)
         if not intruder_text:
             tts_say("I didn't hear anything.")

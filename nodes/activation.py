@@ -12,7 +12,9 @@ import speech_recognition as sr
 import pyttsx3
 import ipywidgets as widgets
 from ..state import GuardState
+from ..utilities import tts_say
  
+text_q = queue.Queue()
 
 
 # WAKE_PHRASES = [p.lower() for p in WAKE_PHRASES]
@@ -21,20 +23,21 @@ from ..state import GuardState
 shutdown_flag = False
 
 # Thread-safe queue to pass recognised text to main thread
-text_q = queue.Queue()
+# text_q = queue.Queue()
 
-# Initialize TTS
-tts_engine = pyttsx3.init()
-tts_engine.setProperty("rate", TTS_RATE)
+# # Initialize TTS
+# tts_engine = pyttsx3.init()
+# tts_engine.setProperty("rate", TTS_RATE)
 
-def tts_say(text):
-    """Speak text (non-blocking via startLoop / runAndWait)."""
-    # We will call runAndWait but catch exceptions to avoid blocking forever.
-    try:
-        tts_engine.say(text)
-        tts_engine.runAndWait()
-    except Exception as e:
-        print("TTS error:", e)
+# def tts_say(text):
+#     """Speak text (non-blocking via startLoop / runAndWait)."""
+#     # We will call runAndWait but catch exceptions to avoid blocking forever.
+#     try:
+#         tts_engine.say(text)
+#         tts_engine.runAndWait()
+#         tts_engine.stop() 
+#     except Exception as e:
+#         print("TTS error:", e)
 
 def is_wake_phrase(transcript):
     """Return True if transcript contains any wake phrase."""
@@ -233,9 +236,5 @@ def activation_node(state: GuardState) -> GuardState:
         print(f"[ActivationNode] Error: {e}")
         return state
 
-if __name__ == "__main__":
-    initial_state = GuardState()
-    print(initial_state)
-    activation_node(state=initial_state)
-    print(initial_state)
+# if __name__ == "_
     
