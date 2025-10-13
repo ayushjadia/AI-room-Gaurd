@@ -18,11 +18,12 @@ PHRASE_TIME_LIMIT = 5         # max length of one spoken chunk (seconds)
 CAMERA_INDEX = 0              # 0 is usually the laptop webcam
 DISPLAY_WINDOW_NAME = "GuardCam (press q to quit)"
 TTS_RATE = 150
+SPOKEN_COOLDOWN = 20.0
 # Config
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(SCRIPT_DIR)
 # Enroll images directory
-ENROLL_DIR = os.path.join(PARENT_DIR, "enroll_images")
-EMBED_FILE = os.path.join(PARENT_DIR, "trusted_embeddings.npz")
+ENROLL_DIR = os.path.join(SCRIPT_DIR, "enroll_images")
+EMBED_FILE = os.path.join(SCRIPT_DIR, "trusted_embeddings.npz")
 TTS_RATE = 150
 FACE_DISTANCE_THRESHOLD = 0.55

@@ -4,9 +4,20 @@ import time
 import pyttsx3
 import numpy as np
 import face_recognition
-from ..utilities import tts_say
 from ..config import *  # for EMBED_FILE, FACE_DISTANCE_THRESHOLD, RATES, etc.
+from ..utilities import tts_say
 import os
+
+# # Initialize TTS
+# tts_engine = pyttsx3.init()
+# tts_engine.setProperty("rate", TTS_RATE)
+
+# def tts_say(text):
+#     try:
+#         tts_engine.say(text)
+#         tts_engine.runAndWait()
+#     except Exception as e:
+#         print("[TTS] Error:", e)
 
 def load_embeddings(npz_path):
     if not os.path.exists(npz_path):
@@ -43,7 +54,7 @@ def recognizer_node(state: GuardState, camera_index=0) -> GuardState:
         return state
 
     last_spoken = {}
-    SPOKEN_COOLDOWN = 5.0
+    
     font = cv2.FONT_HERSHEY_SIMPLEX
 
     try:
@@ -72,7 +83,7 @@ def recognizer_node(state: GuardState, camera_index=0) -> GuardState:
                     color = (0, 200, 0)
                     state.trusted_user = True
                     now = time.time()
-                    if (name not in last_spoken):
+                    if (name not in last_spoken) or (now - last_spoken[name] > SPOKEN_COOLDOWN):
                         tts_say(f"Welcome {name}")
                         last_spoken[name] = now
                 else:
@@ -83,7 +94,6 @@ def recognizer_node(state: GuardState, camera_index=0) -> GuardState:
                     now = time.time()
                     unk_key = "Unknown"
                     if (unk_key not in last_spoken) or (now - last_spoken[unk_key] > SPOKEN_COOLDOWN):
-                        tts_say("Hello. I do not recognize you. Please leave this room.")
                         last_spoken[unk_key] = now
 
                 # Draw box and label

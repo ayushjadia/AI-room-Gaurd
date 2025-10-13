@@ -16,8 +16,28 @@ from ..utilities import tts_say
  
 text_q = queue.Queue()
 
+
+# WAKE_PHRASES = [p.lower() for p in WAKE_PHRASES]
+
 # Global state
 shutdown_flag = False
+
+# Thread-safe queue to pass recognised text to main thread
+# text_q = queue.Queue()
+
+# # Initialize TTS
+# tts_engine = pyttsx3.init()
+# tts_engine.setProperty("rate", TTS_RATE)
+
+# def tts_say(text):
+#     """Speak text (non-blocking via startLoop / runAndWait)."""
+#     # We will call runAndWait but catch exceptions to avoid blocking forever.
+#     try:
+#         tts_engine.say(text)
+#         tts_engine.runAndWait()
+#         tts_engine.stop() 
+#     except Exception as e:
+#         print("TTS error:", e)
 
 def is_wake_phrase(transcript):
     """Return True if transcript contains any wake phrase."""
@@ -160,6 +180,12 @@ def main_loop(state: GuardState) -> GuardState:
             if transcript:
                 cv2.putText(display_frame, f"Heard: {transcript}", (10, 60), font, 0.6, (255,255,255), 1)
 
+            # frame_rgb = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)  # convert to RGB
+            # img = Image.fromarray(frame_rgb)
+
+            # clear_output(wait=True)  # clears old frame
+            # display(img)             # shows new frame
+
             cv2.imshow(DISPLAY_WINDOW_NAME, display_frame)
             # display(Image.fromarray(frame_rgb))
 
@@ -209,3 +235,6 @@ def activation_node(state: GuardState) -> GuardState:
     except Exception as e:
         print(f"[ActivationNode] Error: {e}")
         return state
+
+# if __name__ == "_
+    

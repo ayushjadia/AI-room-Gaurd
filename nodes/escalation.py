@@ -2,13 +2,23 @@
 LangGraph node for Escalation Agent (LLM-integrated)
 Handles conversation, reasoning, and escalation based on intruder dialogue.
 """
+
+# import time
+import threading
+import pyttsx3
 import speech_recognition as sr
+from typing import List
+from pydantic import BaseModel
 from langchain_cerebras import ChatCerebras
 from ..state import GuardState
 from ..utilities import tts_say
 from dotenv import load_dotenv
 load_dotenv()
 
+import time
+
+# import actviation_input as activation
+# import recognition_user_enrollement as recognize
 
 # ------------------ INITIALIZE ------------------
 
@@ -22,25 +32,58 @@ llm = ChatCerebras(
     max_retries=2,
 )
 
+
+
+# Shared objects
+tts_engine = pyttsx3.init()
+tts_engine.setProperty("rate", 150)
 recognizer = sr.Recognizer()
+
+# Locks to coordinate speech and listening
+tts_lock = threading.Lock()
+sr_lock = threading.Lock()
+
+# Global flag for TTS status
+is_tts_active = False
+
+# ------------------ INIT ------------------
+tts_engine = pyttsx3.init()
+tts_engine.setProperty("rate", 150)
+
+recognizer = sr.Recognizer()
+
+# # ------------------ TTS ------------------
+# def tts_say(text: str):
+#     """Speak text synchronously, blocking until done."""
+#     print(f"[Guard says]: {text}")
+#     try:
+#         tts_engine.say(text)
+#         tts_engine.runAndWait()  # BLOCKS until speech is finished
+#     except Exception as e:
+#         print("[TTS error]:", e)
 
 def listen_once(timeout=6) -> str:
     """
     Record one spoken response.
     Will wait until TTS is finished before starting to listen.
     """
-    try:
-        with sr.Microphone() as source:
-            print("[Guard listening]...")
-            recognizer.adjust_for_ambient_noise(source, duration=0.3)
-            audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=timeout)
-        print("[Guard transcribing]...")
-        text = recognizer.recognize_google(audio)
-        print(f"[Intruder said]: {text}")
-        return text
-    except Exception as e:
-        print("[ASR error]:", e)
-        return ""
+    global is_tts_active
+    while is_tts_active:
+        time.sleep(0.1)  # wait for guard to finish talking
+
+    with sr_lock:
+        try:
+            with sr.Microphone() as source:
+                print("[Guard listening]...")
+                recognizer.adjust_for_ambient_noise(source, duration=0.3)
+                audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=timeout)
+            print("[Guard transcribing]...")
+            text = recognizer.recognize_google(audio)
+            print(f"[Intruder said]: {text}")
+            return text
+        except Exception as e:
+            print("[ASR error]:", e)
+            return ""
 
 
 # ------------------ MAIN NODE ------------------
@@ -50,7 +93,6 @@ def escalation_agent_node(state: GuardState) -> GuardState:
     Handles conversation and escalation using LLM reasoning.
     """
     print("\n[EscalationAgent Node] Running LLM dialogue escalation...")
-    tts_say("escalation_agent_node started")
     # Skip if guard off
     if not state.guard_status:
         print("[EscalationAgent] Guard OFF. Exiting node.")
@@ -61,6 +103,12 @@ def escalation_agent_node(state: GuardState) -> GuardState:
         print("[EscalationAgent] Trusted user detected. No escalation.")
         state.escalation_level = 0
         return state
+
+    # # Start conversation
+    # if state.escalation_level==0:
+    #     tts_say("Hello. I do not recognize you. Who are you and why are you here?")
+    #     state.escalation_level+=1
+    #     state.messages.append("Guard: Hello. I do not recognize you. Who are you and why are you here?")
 
     # Dialogue loop
     while state.escalation_level <= 3:
@@ -96,6 +144,8 @@ def escalation_agent_node(state: GuardState) -> GuardState:
         lower_text = intruder_text.lower()
         if any(x in lower_text for x in ["sorry", "friend", "mistake", "wrong room"]):
             print("[EscalationAgent] Genuine response — de-escalating.")
+            # state.trusted_user = False
+            # state.escalation_level = 2
         return state
 
     if state.escalation_level > 3:
